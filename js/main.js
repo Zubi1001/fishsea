@@ -190,7 +190,9 @@ function createOtherFish(count) {
         0x9966ff  // Purple
     ];
     
-    for (let i = 0; i < count; i++) {
+    // Create regular fish (70% of total)
+    const regularFishCount = Math.floor(count * 0.7);
+    for (let i = 0; i < regularFishCount; i++) {
         const position = {
             x: Math.random() * 160 - 80,
             y: Math.random() * 80 - 40,
@@ -198,11 +200,77 @@ function createOtherFish(count) {
         };
         
         const color = fishColors[Math.floor(Math.random() * fishColors.length)];
-        const size = Math.random() * 0.8 + 0.6;
+        const size = Math.random() * 1.2 + 0.4; // Size between 0.4 and 1.6
         
         const fish = new Fish(scene, position, color, size);
-        fish.maxSpeed = Math.random() * 0.05 + 0.03;
+        fish.maxSpeed = (Math.random() * 0.05 + 0.03) * (1.5 - size/2);
+        fish.fishType = Math.floor(Math.random() * 3); // 0, 1, or 2 for different fish shapes
+        
         otherFish.push(fish);
+    }
+    
+    // Create sharks (10% of total)
+    const sharkCount = Math.floor(count * 0.1);
+    for (let i = 0; i < sharkCount; i++) {
+        const position = {
+            x: Math.random() * 200 - 100,
+            y: Math.random() * 60 - 30,
+            z: Math.random() * 200 - 100
+        };
+        
+        // Sharks are usually gray/blue
+        const sharkColors = [0x607d8b, 0x455a64, 0x546e7a, 0x78909c];
+        const color = sharkColors[Math.floor(Math.random() * sharkColors.length)];
+        
+        // Sharks are larger
+        const size = Math.random() * 1.5 + 2.5; // Size between 2.5 and 4.0
+        
+        const shark = new Shark(scene, position, color, size);
+        shark.maxSpeed = Math.random() * 0.04 + 0.02; // Slightly slower but more menacing
+        
+        otherFish.push(shark);
+    }
+    
+    // Create octopuses (10% of total)
+    const octopusCount = Math.floor(count * 0.1);
+    for (let i = 0; i < octopusCount; i++) {
+        const position = {
+            x: Math.random() * 160 - 80,
+            y: -30 + Math.random() * 10, // Closer to the seabed
+            z: Math.random() * 160 - 80
+        };
+        
+        // Octopus colors
+        const octopusColors = [0x800080, 0x4b0082, 0x8b008b, 0xff00ff];
+        const color = octopusColors[Math.floor(Math.random() * octopusColors.length)];
+        
+        const size = Math.random() * 1.0 + 1.5; // Size between 1.5 and 2.5
+        
+        const octopus = new Octopus(scene, position, color, size);
+        octopus.maxSpeed = Math.random() * 0.02 + 0.01; // Slower movement
+        
+        otherFish.push(octopus);
+    }
+    
+    // Create jellyfish (10% of total)
+    const jellyfishCount = Math.floor(count * 0.1);
+    for (let i = 0; i < jellyfishCount; i++) {
+        const position = {
+            x: Math.random() * 160 - 80,
+            y: Math.random() * 60 - 10, // More in upper waters
+            z: Math.random() * 160 - 80
+        };
+        
+        // Jellyfish colors - translucent blues and pinks
+        const jellyfishColors = [0x88ccff, 0xffaacc, 0xaaddff, 0xffccee];
+        const color = jellyfishColors[Math.floor(Math.random() * jellyfishColors.length)];
+        
+        const size = Math.random() * 0.8 + 0.8; // Size between 0.8 and 1.6
+        
+        const jellyfish = new Jellyfish(scene, position, color, size);
+        jellyfish.maxSpeed = Math.random() * 0.01 + 0.005; // Very slow drifting
+        
+        otherFish.push(jellyfish);
     }
 }
 
@@ -261,35 +329,121 @@ function updateOtherFish() {
     // Spawn new fish if needed
     if (otherFish.length < minFishCount) {
         const fishToAdd = minFishCount - otherFish.length;
-        const fishColors = [
-            0xff6600, // Orange
-            0xff9900, // Gold
-            0xffcc00, // Yellow
-            0x66ccff, // Light blue
-            0xff6699, // Pink
-            0x99ff66, // Lime
-            0x9966ff  // Purple
-        ];
         
+        // Spawn a mix of different creatures
         for (let i = 0; i < fishToAdd; i++) {
-            // Spawn fish in a ring around the player
+            // Spawn creatures in a ring around the player
             const angle = Math.random() * Math.PI * 2;
             const distance = Math.random() * 100 + 100; // Between 100-200 units away
             
-            const position = {
-                x: playerPos.x + Math.cos(angle) * distance,
-                y: Math.random() * 80 - 40,
-                z: playerPos.z + Math.sin(angle) * distance
-            };
+            // Determine creature type based on probability
+            const creatureType = Math.random();
             
-            const color = fishColors[Math.floor(Math.random() * fishColors.length)];
-            const size = Math.random() * 0.8 + 0.6;
-            
-            const fish = new Fish(scene, position, color, size);
-            fish.maxSpeed = Math.random() * 0.05 + 0.03;
-            otherFish.push(fish);
+            if (creatureType < 0.7) {
+                // 70% chance for regular fish
+                spawnRegularFish(playerPos, angle, distance);
+            } else if (creatureType < 0.8) {
+                // 10% chance for sharks
+                spawnShark(playerPos, angle, distance);
+            } else if (creatureType < 0.9) {
+                // 10% chance for octopuses
+                spawnOctopus(playerPos, angle, distance);
+            } else {
+                // 10% chance for jellyfish
+                spawnJellyfish(playerPos, angle, distance);
+            }
         }
     }
+}
+
+// Helper functions to spawn different creature types
+function spawnRegularFish(playerPos, angle, distance) {
+    const fishColors = [
+        0xff6600, // Orange
+        0xff9900, // Gold
+        0xffcc00, // Yellow
+        0x66ccff, // Light blue
+        0xff6699, // Pink
+        0x99ff66, // Lime
+        0x9966ff, // Purple
+        0x00ffff, // Cyan
+        0xff0000, // Red
+        0x00ff00, // Green
+        0x0000ff  // Blue
+    ];
+    
+    const position = {
+        x: playerPos.x + Math.cos(angle) * distance,
+        y: Math.random() * 80 - 40,
+        z: playerPos.z + Math.sin(angle) * distance
+    };
+    
+    const color = fishColors[Math.floor(Math.random() * fishColors.length)];
+    const size = Math.random() * 1.2 + 0.4; // Size between 0.4 and 1.6
+    
+    const fish = new Fish(scene, position, color, size);
+    fish.maxSpeed = (Math.random() * 0.05 + 0.03) * (1.5 - size/2);
+    fish.fishType = Math.floor(Math.random() * 3); // 0, 1, or 2 for different fish shapes
+    
+    otherFish.push(fish);
+}
+
+function spawnShark(playerPos, angle, distance) {
+    const position = {
+        x: playerPos.x + Math.cos(angle) * distance,
+        y: Math.random() * 60 - 30,
+        z: playerPos.z + Math.sin(angle) * distance
+    };
+    
+    // Sharks are usually gray/blue
+    const sharkColors = [0x607d8b, 0x455a64, 0x546e7a, 0x78909c];
+    const color = sharkColors[Math.floor(Math.random() * sharkColors.length)];
+    
+    // Sharks are larger
+    const size = Math.random() * 1.5 + 2.5; // Size between 2.5 and 4.0
+    
+    const shark = new Shark(scene, position, color, size);
+    shark.maxSpeed = Math.random() * 0.04 + 0.02; // Slightly slower but more menacing
+    
+    otherFish.push(shark);
+}
+
+function spawnOctopus(playerPos, angle, distance) {
+    const position = {
+        x: playerPos.x + Math.cos(angle) * distance,
+        y: -30 + Math.random() * 10, // Closer to the seabed
+        z: playerPos.z + Math.sin(angle) * distance
+    };
+    
+    // Octopus colors
+    const octopusColors = [0x800080, 0x4b0082, 0x8b008b, 0xff00ff];
+    const color = octopusColors[Math.floor(Math.random() * octopusColors.length)];
+    
+    const size = Math.random() * 1.0 + 1.5; // Size between 1.5 and 2.5
+    
+    const octopus = new Octopus(scene, position, color, size);
+    octopus.maxSpeed = Math.random() * 0.02 + 0.01; // Slower movement
+    
+    otherFish.push(octopus);
+}
+
+function spawnJellyfish(playerPos, angle, distance) {
+    const position = {
+        x: playerPos.x + Math.cos(angle) * distance,
+        y: Math.random() * 60 - 10, // More in upper waters
+        z: playerPos.z + Math.sin(angle) * distance
+    };
+    
+    // Jellyfish colors - translucent blues and pinks
+    const jellyfishColors = [0x88ccff, 0xffaacc, 0xaaddff, 0xffccee];
+    const color = jellyfishColors[Math.floor(Math.random() * jellyfishColors.length)];
+    
+    const size = Math.random() * 0.8 + 0.8; // Size between 0.8 and 1.6
+    
+    const jellyfish = new Jellyfish(scene, position, color, size);
+    jellyfish.maxSpeed = Math.random() * 0.01 + 0.005; // Very slow drifting
+    
+    otherFish.push(jellyfish);
 }
 
 function updateWaterSurface() {
