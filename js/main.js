@@ -43,7 +43,7 @@ function init() {
     playerFish = new PlayerFish(scene, camera, { x: 0, y: 0, z: 0 });
     
     // Create other fish
-    createOtherFish(20);
+    createOtherFish(50);
     
     // Handle window resize
     window.addEventListener('resize', onWindowResize);
@@ -192,7 +192,55 @@ function createOtherFish(count) {
     
     // Create regular fish (70% of total)
     const regularFishCount = Math.floor(count * 0.7);
-    for (let i = 0; i < regularFishCount; i++) {
+    
+    // Create fish in schools (groups)
+    const schoolCount = Math.floor(regularFishCount / 5); // Create about 5 fish per school
+    
+    for (let s = 0; s < schoolCount; s++) {
+        // Choose a random center point for this school
+        const schoolCenter = {
+            x: Math.random() * 160 - 80,
+            y: Math.random() * 80 - 40,
+            z: Math.random() * 160 - 80
+        };
+        
+        // Choose a common color and similar size for this school
+        const schoolColor = fishColors[Math.floor(Math.random() * fishColors.length)];
+        const baseSize = Math.random() * 0.8 + 0.6; // Base size between 0.6 and 1.4
+        const fishType = Math.floor(Math.random() * 3); // Same fish type for the school
+        
+        // Create 3-7 fish per school
+        const fishInSchool = Math.floor(Math.random() * 5) + 3;
+        
+        for (let i = 0; i < fishInSchool; i++) {
+            // Position fish near the school center
+            const position = {
+                x: schoolCenter.x + (Math.random() * 10 - 5),
+                y: schoolCenter.y + (Math.random() * 10 - 5),
+                z: schoolCenter.z + (Math.random() * 10 - 5)
+            };
+            
+            // Slight variation in size and color
+            const size = baseSize * (0.9 + Math.random() * 0.2); // ±10% size variation
+            const colorVariation = Math.random() * 0.1 - 0.05; // ±5% color variation
+            
+            // Create a slightly modified color
+            const color = new THREE.Color(schoolColor);
+            color.r = Math.min(1, Math.max(0, color.r * (1 + colorVariation)));
+            color.g = Math.min(1, Math.max(0, color.g * (1 + colorVariation)));
+            color.b = Math.min(1, Math.max(0, color.b * (1 + colorVariation)));
+            
+            const fish = new Fish(scene, position, color.getHex(), size);
+            fish.maxSpeed = (Math.random() * 0.03 + 0.04) * (1.5 - size/2);
+            fish.fishType = fishType;
+            
+            otherFish.push(fish);
+        }
+    }
+    
+    // Create some solitary fish to fill the count
+    const remainingFish = regularFishCount - otherFish.length;
+    for (let i = 0; i < remainingFish; i++) {
         const position = {
             x: Math.random() * 160 - 80,
             y: Math.random() * 80 - 40,
@@ -204,7 +252,7 @@ function createOtherFish(count) {
         
         const fish = new Fish(scene, position, color, size);
         fish.maxSpeed = (Math.random() * 0.05 + 0.03) * (1.5 - size/2);
-        fish.fishType = Math.floor(Math.random() * 3); // 0, 1, or 2 for different fish shapes
+        fish.fishType = Math.floor(Math.random() * 3);
         
         otherFish.push(fish);
     }
@@ -314,7 +362,7 @@ function updateOtherFish() {
     // Check if we need to spawn new fish or remove distant ones
     const playerPos = playerFish.fishGroup.position;
     const maxDistance = 300; // Maximum distance before fish are removed
-    const minFishCount = 20; // Minimum number of fish around the player
+    const minFishCount = 50; // Minimum number of fish around the player
     
     // Remove fish that are too far away
     otherFish = otherFish.filter(fish => {

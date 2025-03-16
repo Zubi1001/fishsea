@@ -152,25 +152,43 @@ class Fish {
     }
     
     update() {
-        // Apply wandering behavior
-        this.wander();
+        // Apply wandering behavior (with reduced influence)
+        const wanderForce = this.wander();
+        wanderForce.multiplyScalar(0.5); // Reduce the influence of wandering
+        this.applyForce(wanderForce);
         
-        // Update position based on velocity
+        // Apply schooling behavior if there are nearby fish
+        if (typeof otherFish !== 'undefined' && otherFish.length > 0) {
+            // Find nearby fish (within 20 units)
+            const nearbyFish = otherFish.filter(fish => 
+                fish !== this && 
+                fish.fishGroup.position.distanceTo(this.fishGroup.position) < 20
+            );
+            
+            if (nearbyFish.length > 0) {
+                this.schoolWithNeighbors(nearbyFish);
+            }
+        }
+        
+        // Update velocity and position
+        this.velocity.add(this.acceleration);
+        this.velocity.clampLength(0, this.maxSpeed);
         this.fishGroup.position.add(this.velocity);
         
-        // Update rotation to face direction of movement
+        // Reset acceleration
+        this.acceleration.set(0, 0, 0);
+        
+        // Make fish face the direction of movement
         if (this.velocity.length() > 0.001) {
             this.fishGroup.lookAt(
-                this.fishGroup.position.x + this.velocity.x,
-                this.fishGroup.position.y + this.velocity.y,
-                this.fishGroup.position.z + this.velocity.z
+                this.fishGroup.position.clone().add(this.velocity)
             );
         }
         
         // Animate tail and fins
         this.animateParts();
         
-        // Boundary check - wrap around if fish goes too far
+        // Check boundaries
         this.checkBoundaries();
         
         // Update collision shape position
@@ -199,6 +217,8 @@ class Fish {
         if (this.velocity.length() > this.maxSpeed) {
             this.velocity.normalize().multiplyScalar(this.maxSpeed);
         }
+        
+        return wanderForce;
     }
     
     applyForce(force) {
@@ -229,6 +249,83 @@ class Fish {
             pos.y = -30;
             this.velocity.y *= -0.5;
         }
+    }
+    
+    schoolWithNeighbors(neighbors, separationDistance = 3, alignmentDistance = 5, cohesionDistance = 7) {
+        // Initialize steering forces
+        const separation = new THREE.Vector3();
+        const alignment = new THREE.Vector3();
+        const cohesion = new THREE.Vector3();
+        
+        let separationCount = 0;
+        let alignmentCount = 0;
+        let cohesionCount = 0;
+        
+        // Check each neighbor
+        for (const neighbor of neighbors) {
+            // Skip if it's not the same type of fish (don't school with different species)
+            if (this.constructor.name !== neighbor.constructor.name) continue;
+            
+            // Get distance to neighbor
+            const distance = this.fishGroup.position.distanceTo(neighbor.fishGroup.position);
+            
+            // Separation: steer to avoid crowding local flockmates
+            if (distance > 0 && distance < separationDistance) {
+                const diff = new THREE.Vector3().subVectors(
+                    this.fishGroup.position,
+                    neighbor.fishGroup.position
+                );
+                diff.normalize();
+                diff.divideScalar(distance); // Weight by distance
+                separation.add(diff);
+                separationCount++;
+            }
+            
+            // Alignment: steer towards the average heading of local flockmates
+            if (distance > 0 && distance < alignmentDistance) {
+                alignment.add(neighbor.velocity);
+                alignmentCount++;
+            }
+            
+            // Cohesion: steer to move toward the average position of local flockmates
+            if (distance > 0 && distance < cohesionDistance) {
+                cohesion.add(neighbor.fishGroup.position);
+                cohesionCount++;
+            }
+        }
+        
+        // Calculate average and apply steering forces
+        if (separationCount > 0) {
+            separation.divideScalar(separationCount);
+            separation.normalize();
+            separation.multiplyScalar(this.maxSpeed);
+            separation.sub(this.velocity);
+            separation.clampLength(0, this.maxForce * 1.5); // Separation is stronger
+        }
+        
+        if (alignmentCount > 0) {
+            alignment.divideScalar(alignmentCount);
+            alignment.normalize();
+            alignment.multiplyScalar(this.maxSpeed);
+            alignment.sub(this.velocity);
+            alignment.clampLength(0, this.maxForce);
+        }
+        
+        if (cohesionCount > 0) {
+            cohesion.divideScalar(cohesionCount);
+            cohesion.sub(this.fishGroup.position);
+            cohesion.normalize();
+            cohesion.multiplyScalar(this.maxSpeed);
+            cohesion.sub(this.velocity);
+            cohesion.clampLength(0, this.maxForce);
+        }
+        
+        // Apply the forces with different weights
+        this.applyForce(separation.multiplyScalar(1.5)); // Separation is most important
+        this.applyForce(alignment.multiplyScalar(1.0));
+        this.applyForce(cohesion.multiplyScalar(1.0));
+        
+        return this;
     }
 }
 
@@ -331,6 +428,8 @@ class Shark extends Fish {
         if (this.velocity.length() > this.maxSpeed) {
             this.velocity.normalize().multiplyScalar(this.maxSpeed);
         }
+        
+        return wanderForce;
     }
 }
 
@@ -483,6 +582,8 @@ class Octopus extends Fish {
         if (this.velocity.length() > this.maxSpeed) {
             this.velocity.normalize().multiplyScalar(this.maxSpeed);
         }
+        
+        return wanderForce;
     }
 }
 
@@ -609,6 +710,8 @@ class Jellyfish extends Fish {
         if (this.velocity.length() > this.maxSpeed) {
             this.velocity.normalize().multiplyScalar(this.maxSpeed);
         }
+        
+        return wanderForce;
     }
     
     // Override update to make jellyfish always face upward
