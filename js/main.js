@@ -51,6 +51,10 @@ function init() {
     
     // Start animation loop
     animate();
+
+    // Add after creating worldGenerator in init()
+    window.animatedCreatures = []; // Initialize the array
+    createSeabedCreatures(); // Add new function to create crabs
 }
 
 function addLights() {
@@ -655,6 +659,33 @@ function animateSeabedCreatures() {
                     }
                 }
             }
+        });
+    }
+}
+
+// Add this new function
+function createSeabedCreatures() {
+    // Create 5-10 crabs
+    const crabCount = Math.floor(Math.random() * 6) + 5;
+    
+    for (let i = 0; i < crabCount; i++) {
+        const position = {
+            x: Math.random() * 160 - 80,
+            y: -35, // Place on seabed
+            z: Math.random() * 160 - 80
+        };
+        
+        // Create crab mesh (you'll need to implement this)
+        const crab = new Crab(scene, position);
+        
+        // Add to animated creatures
+        window.animatedCreatures.push({
+            mesh: crab.mesh,
+            type: 'crab',
+            speed: 0.05,
+            direction: new THREE.Vector3(Math.random() - 0.5, 0, Math.random() - 0.5).normalize(),
+            counter: 0,
+            nextDirectionChange: Math.random() * 200 + 100
         });
     }
 }
