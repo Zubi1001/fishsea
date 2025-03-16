@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infinite Fish Simulator</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="info">
+        <h1>Infinite Fish Simulator</h1>
+        <p>W/S: Accelerate/Decelerate | Arrow Keys: Change Direction</p>
+        <p>Space: Quick Ascend | Ctrl: Quick Descend</p>
+    </div>
+    <div id="container"></div>
+
+    <!-- Import Three.js -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.157.0/examples/js/controls/OrbitControls.js"></script>
+    
+    <!-- Import our scripts -->
+    <script src="js/Fish.js"></script>
+    <script src="js/PlayerFish.js"></script>
+    <script src="js/WorldGenerator.js"></script>
+    <script src="js/main.js"></script>
+
+    <!-- Add these before your other scripts, after the Three.js script -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.157.0/examples/js/loaders/MTLLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.157.0/examples/js/loaders/OBJLoader.js"></script>
+</body>
+</html> 

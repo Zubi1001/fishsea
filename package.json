@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "three-mtl-loader": "^1.0.2"
+  }
+}
