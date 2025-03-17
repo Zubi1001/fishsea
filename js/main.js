@@ -878,8 +878,8 @@ function createUnderwaterParticles() {
 }
 
 function setupMobileControls() {
-    // Detect if device is mobile
-    isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    // CHANGE THIS LINE - Force enable mobile controls for testing
+    isMobile = true; // /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     
     if (!isMobile) return; // Only setup on mobile devices
     
@@ -895,7 +895,8 @@ function setupMobileControls() {
     controlsContainer.style.height = '200px';
     controlsContainer.style.display = 'flex';
     controlsContainer.style.justifyContent = 'space-between';
-    controlsContainer.style.pointerEvents = 'none'; // Let events pass through this container
+    controlsContainer.style.pointerEvents = 'auto'; // Let events pass through this container
+    controlsContainer.style.zIndex = '999'; // Make sure it appears above the game
     document.body.appendChild(controlsContainer);
     
     // Create left joystick for movement
@@ -904,22 +905,26 @@ function setupMobileControls() {
     leftJoystick.style.width = '120px';
     leftJoystick.style.height = '120px';
     leftJoystick.style.borderRadius = '60px';
-    leftJoystick.style.backgroundColor = 'rgba(255, 255, 255, 0.3)';
+    leftJoystick.style.backgroundColor = 'rgba(255, 255, 255, 0.5)';
+    leftJoystick.style.border = '2px solid white';
     leftJoystick.style.margin = '10px';
     leftJoystick.style.position = 'relative';
-    leftJoystick.style.pointerEvents = 'auto'; // Make this element receive events
+    leftJoystick.style.zIndex = '1000';
+    leftJoystick.style.pointerEvents = 'auto';
     controlsContainer.appendChild(leftJoystick);
     
-    // Create joystick handle
+    // Create joystick handle with better visibility
     const leftHandle = document.createElement('div');
     leftHandle.id = 'left-handle';
     leftHandle.style.width = '60px';
     leftHandle.style.height = '60px';
     leftHandle.style.borderRadius = '30px';
-    leftHandle.style.backgroundColor = 'rgba(255, 255, 255, 0.6)';
+    leftHandle.style.backgroundColor = 'rgba(0, 150, 255, 0.8)';
+    leftHandle.style.border = '2px solid white';
     leftHandle.style.position = 'absolute';
     leftHandle.style.top = '30px';
     leftHandle.style.left = '30px';
+    leftHandle.style.zIndex = '1001';
     leftHandle.style.pointerEvents = 'none';
     leftJoystick.appendChild(leftHandle);
     
