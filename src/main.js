@@ -204,7 +204,7 @@ function createFishes() {
     // Create jellyfish - in upper water levels
     for (let i = 0; i < fishCounts.jellyfish; i++) {
         const position = getRandomPosition(0, { min: 10, max: 40 }); // Upper waters
-        const color = 0x88ccff + Math.random() * 0x001133;
+        const color = 0xffcce6 + Math.random() * 0x001133; // Light pink color
         const jellyfish = new Jellyfish(scene, position, color);
         state.otherFish.push(jellyfish);
     }
