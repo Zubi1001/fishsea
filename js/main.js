@@ -147,7 +147,7 @@ function createSeabed() {
     seabed.collisionShape = {
         type: 'plane',
         normal: new THREE.Vector3(0, 1, 0),
-        constant: -25  // Match the y position
+        constant: -40  // Match the actual y position
     };
     collidableObjects.push(seabed);
     
