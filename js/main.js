@@ -15,6 +15,17 @@ let causticsTextures = []; // Add this new global variable
 // Flag to track if animation has started
 let animationStarted = false;
 
+// Add this to main.js right after the init() function
+let isMobile = false;
+let joystickControls = null;
+let actionButtons = {};
+const touchState = {
+    moving: false,
+    lookingAround: false,
+    lastX: 0,
+    lastY: 0
+};
+
 // Initialize the scene
 function init() {
     // Create scene
@@ -77,6 +88,10 @@ function init() {
 
     // Add underwater particles
     createUnderwaterParticles();
+
+    // Add after all other init code
+    setupMobileControls();
+    optimizeForMobile();
 }
 
 function addLights() {
@@ -860,6 +875,292 @@ function createUnderwaterParticles() {
 
     particleSystem = new THREE.Points(particleGeometry, particleMaterial);
     scene.add(particleSystem);
+}
+
+function setupMobileControls() {
+    // Detect if device is mobile
+    isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    if (!isMobile) return; // Only setup on mobile devices
+    
+    console.log("Setting up mobile controls");
+    
+    // Create container for mobile controls
+    const controlsContainer = document.createElement('div');
+    controlsContainer.id = 'mobile-controls';
+    controlsContainer.style.position = 'fixed';
+    controlsContainer.style.bottom = '10px';
+    controlsContainer.style.left = '0';
+    controlsContainer.style.width = '100%';
+    controlsContainer.style.height = '200px';
+    controlsContainer.style.display = 'flex';
+    controlsContainer.style.justifyContent = 'space-between';
+    controlsContainer.style.pointerEvents = 'none'; // Let events pass through this container
+    document.body.appendChild(controlsContainer);
+    
+    // Create left joystick for movement
+    const leftJoystick = document.createElement('div');
+    leftJoystick.id = 'left-joystick';
+    leftJoystick.style.width = '120px';
+    leftJoystick.style.height = '120px';
+    leftJoystick.style.borderRadius = '60px';
+    leftJoystick.style.backgroundColor = 'rgba(255, 255, 255, 0.3)';
+    leftJoystick.style.margin = '10px';
+    leftJoystick.style.position = 'relative';
+    leftJoystick.style.pointerEvents = 'auto'; // Make this element receive events
+    controlsContainer.appendChild(leftJoystick);
+    
+    // Create joystick handle
+    const leftHandle = document.createElement('div');
+    leftHandle.id = 'left-handle';
+    leftHandle.style.width = '60px';
+    leftHandle.style.height = '60px';
+    leftHandle.style.borderRadius = '30px';
+    leftHandle.style.backgroundColor = 'rgba(255, 255, 255, 0.6)';
+    leftHandle.style.position = 'absolute';
+    leftHandle.style.top = '30px';
+    leftHandle.style.left = '30px';
+    leftHandle.style.pointerEvents = 'none';
+    leftJoystick.appendChild(leftHandle);
+    
+    // Create action buttons container
+    const buttonsContainer = document.createElement('div');
+    buttonsContainer.id = 'buttons-container';
+    buttonsContainer.style.display = 'flex';
+    buttonsContainer.style.flexDirection = 'column';
+    buttonsContainer.style.justifyContent = 'flex-end';
+    buttonsContainer.style.margin = '10px';
+    buttonsContainer.style.pointerEvents = 'auto';
+    controlsContainer.appendChild(buttonsContainer);
+    
+    // Create boost button
+    const boostButton = createActionButton('boost', 'BOOST');
+    buttonsContainer.appendChild(boostButton);
+    
+    // Create up button
+    const upButton = createActionButton('up', '↑');
+    buttonsContainer.appendChild(upButton);
+    
+    // Create down button
+    const downButton = createActionButton('down', '↓');
+    buttonsContainer.appendChild(downButton);
+    
+    // Setup touch events for joystick
+    setupJoystickEvents(leftJoystick, leftHandle);
+    
+    // Setup action button events
+    setupActionButtonEvents();
+    
+    // Setup swipe for camera control (on the rest of the screen)
+    setupCameraSwipeControls();
+}
+
+function createActionButton(id, text) {
+    const button = document.createElement('div');
+    button.id = id + '-button';
+    button.className = 'mobile-action-button';
+    button.innerText = text;
+    button.style.width = '80px';
+    button.style.height = '50px';
+    button.style.borderRadius = '25px';
+    button.style.backgroundColor = 'rgba(255, 255, 255, 0.4)';
+    button.style.color = 'white';
+    button.style.textAlign = 'center';
+    button.style.lineHeight = '50px';
+    button.style.fontWeight = 'bold';
+    button.style.margin = '5px';
+    button.style.userSelect = 'none';
+    
+    // Store reference to button
+    actionButtons[id] = button;
+    
+    return button;
+}
+
+function setupJoystickEvents(joystick, handle) {
+    const joystickRect = joystick.getBoundingClientRect();
+    const centerX = joystickRect.width / 2;
+    const centerY = joystickRect.height / 2;
+    const maxDistance = joystickRect.width / 2 - handle.offsetWidth / 2;
+    
+    // Handle joystick touch start
+    joystick.addEventListener('touchstart', function(e) {
+        e.preventDefault();
+        handleJoystickTouch(e.touches[0].clientX - joystickRect.left, e.touches[0].clientY - joystickRect.top);
+    });
+    
+    // Handle joystick touch move
+    joystick.addEventListener('touchmove', function(e) {
+        e.preventDefault();
+        handleJoystickTouch(e.touches[0].clientX - joystickRect.left, e.touches[0].clientY - joystickRect.top);
+    });
+    
+    // Handle joystick touch end
+    joystick.addEventListener('touchend', function(e) {
+        e.preventDefault();
+        // Reset joystick position
+        handle.style.top = centerY - handle.offsetHeight / 2 + 'px';
+        handle.style.left = centerX - handle.offsetWidth / 2 + 'px';
+        
+        // Reset player inputs
+        playerFish.input.forward = false;
+        playerFish.input.backward = false;
+        playerFish.input.left = false;
+        playerFish.input.right = false;
+    });
+    
+    function handleJoystickTouch(x, y) {
+        // Calculate distance from center
+        let deltaX = x - centerX;
+        let deltaY = y - centerY;
+        let distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        
+        // If distance is greater than max, normalize
+        if (distance > maxDistance) {
+            deltaX = deltaX / distance * maxDistance;
+            deltaY = deltaY / distance * maxDistance;
+            distance = maxDistance;
+        }
+        
+        // Move handle
+        handle.style.left = centerX + deltaX - handle.offsetWidth / 2 + 'px';
+        handle.style.top = centerY + deltaY - handle.offsetHeight / 2 + 'px';
+        
+        // Calculate direction for player movement
+        // Forward/backward based on Y position
+        const forwardAmount = -deltaY / maxDistance; // Invert Y axis (up is forward)
+        playerFish.input.forward = forwardAmount > 0.2;
+        playerFish.input.backward = forwardAmount < -0.2;
+        
+        // Left/right based on X position
+        const rightAmount = deltaX / maxDistance;
+        playerFish.input.left = rightAmount < -0.2;
+        playerFish.input.right = rightAmount > 0.2;
+        
+        // For continuous turning, we can also add this to handleMovement in PlayerFish.js later
+    }
+}
+
+function setupActionButtonEvents() {
+    // Boost button
+    actionButtons.boost.addEventListener('touchstart', function(e) {
+        e.preventDefault();
+        playerFish.input.boost = true;
+        this.style.backgroundColor = 'rgba(255, 128, 0, 0.7)';
+    });
+    
+    actionButtons.boost.addEventListener('touchend', function(e) {
+        e.preventDefault();
+        playerFish.input.boost = false;
+        this.style.backgroundColor = 'rgba(255, 255, 255, 0.4)';
+    });
+    
+    // Up button
+    actionButtons.up.addEventListener('touchstart', function(e) {
+        e.preventDefault();
+        playerFish.input.quickUp = true;
+        this.style.backgroundColor = 'rgba(0, 255, 255, 0.7)';
+    });
+    
+    actionButtons.up.addEventListener('touchend', function(e) {
+        e.preventDefault();
+        playerFish.input.quickUp = false;
+        this.style.backgroundColor = 'rgba(255, 255, 255, 0.4)';
+    });
+    
+    // Down button
+    actionButtons.down.addEventListener('touchstart', function(e) {
+        e.preventDefault();
+        playerFish.input.quickDown = true;
+        this.style.backgroundColor = 'rgba(0, 128, 255, 0.7)';
+    });
+    
+    actionButtons.down.addEventListener('touchend', function(e) {
+        e.preventDefault();
+        playerFish.input.quickDown = false;
+        this.style.backgroundColor = 'rgba(255, 255, 255, 0.4)';
+    });
+}
+
+function setupCameraSwipeControls() {
+    // Create a style element for mobile optimizations
+    const styleEl = document.createElement('style');
+    styleEl.textContent = `
+        body { touch-action: none; }
+        #container { touch-action: none; }
+    `;
+    document.head.appendChild(styleEl);
+    
+    // Add touch event listeners to the renderer
+    renderer.domElement.addEventListener('touchstart', handleTouchStart, { passive: false });
+    renderer.domElement.addEventListener('touchmove', handleTouchMove, { passive: false });
+    renderer.domElement.addEventListener('touchend', handleTouchEnd, { passive: false });
+    
+    function handleTouchStart(e) {
+        // Ignore if the touch is on the joystick or buttons
+        if (e.target.id === 'left-joystick' || e.target.classList.contains('mobile-action-button')) {
+            return;
+        }
+        
+        e.preventDefault();
+        
+        // Store the touch start position
+        touchState.lastX = e.touches[0].clientX;
+        touchState.lastY = e.touches[0].clientY;
+        touchState.lookingAround = true;
+        
+        // Initialize mouse control values to match current camera
+        playerFish.mouseControl.lastMouseX = e.touches[0].clientX;
+        playerFish.mouseControl.lastMouseY = e.touches[0].clientY;
+        playerFish.mouseControl.isDragging = true;
+    }
+    
+    function handleTouchMove(e) {
+        if (!touchState.lookingAround) return;
+        
+        e.preventDefault();
+        
+        // Calculate the change in position
+        const deltaX = e.touches[0].clientX - touchState.lastX;
+        const deltaY = e.touches[0].clientY - touchState.lastY;
+        
+        // Update the last position
+        touchState.lastX = e.touches[0].clientX;
+        touchState.lastY = e.touches[0].clientY;
+        
+        // Pass the touch data to handleMouseMove
+        const mouseEvent = {
+            clientX: e.touches[0].clientX,
+            clientY: e.touches[0].clientY
+        };
+        
+        playerFish.handleMouseMove(mouseEvent);
+    }
+    
+    function handleTouchEnd(e) {
+        touchState.lookingAround = false;
+        playerFish.mouseControl.isDragging = false;
+    }
+}
+
+// Mobile performance optimizations
+function optimizeForMobile() {
+    if (!isMobile) return;
+    
+    // Reduce render quality
+    renderer.setPixelRatio(window.devicePixelRatio * 0.8);
+    
+    // Reduce the number of fish/particles
+    if (particleSystem) {
+        particleSystem.material.size *= 0.8;
+    }
+    
+    // Add mobile-specific fog settings
+    underwaterFog.density = 0.008; // Increase fog density to reduce draw distance
+    
+    // Reduce far plane of camera to improve performance
+    camera.far = 400;
+    camera.updateProjectionMatrix();
 }
 
 // Start the application

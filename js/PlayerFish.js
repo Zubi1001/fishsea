@@ -303,6 +303,42 @@ class PlayerFish extends Fish {
         if (this.velocity.length() > this.maxSpeed) {
             this.velocity.normalize().multiplyScalar(this.maxSpeed);
         }
+        
+        // In the handleMovement method, add this after the current speed calculations
+        if (isMobile) {
+            // Get joystick position for analog movement
+            const leftJoystick = document.getElementById('left-handle');
+            if (leftJoystick) {
+                const joystickRect = document.getElementById('left-joystick').getBoundingClientRect();
+                const handleRect = leftJoystick.getBoundingClientRect();
+                
+                // Calculate normalized joystick position (-1 to 1)
+                const centerX = joystickRect.width / 2;
+                const centerY = joystickRect.height / 2;
+                const handleCenterX = (handleRect.left - joystickRect.left) + handleRect.width / 2;
+                const handleCenterY = (handleRect.top - joystickRect.top) + handleRect.height / 2;
+                
+                const deltaX = (handleCenterX - centerX) / (joystickRect.width / 2 - handleRect.width / 2);
+                const deltaY = (handleCenterY - centerY) / (joystickRect.height / 2 - handleRect.height / 2);
+                
+                // Apply analog turning
+                if (Math.abs(deltaX) > 0.1) {
+                    const turnAmount = -deltaX * this.rotationSpeed;
+                    const rotationMatrix = new THREE.Matrix4().makeRotationAxis(
+                        upVector, turnAmount
+                    );
+                    this.fishGroup.quaternion.premultiply(
+                        new THREE.Quaternion().setFromRotationMatrix(rotationMatrix)
+                    );
+                }
+                
+                // Use Y axis for acceleration/deceleration
+                if (Math.abs(deltaY) > 0.1) {
+                    // Forward/backward based on Y position
+                    this.currentSpeed = -deltaY * this.maxSpeed;
+                }
+            }
+        }
     }
     
     updateBanking() {
