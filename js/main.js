@@ -58,32 +58,36 @@ function init() {
 }
 
 function addLights() {
-    // Ambient light
-    const ambientLight = new THREE.AmbientLight(0x666666);
+    // Enhance ambient light for better overall visibility
+    const ambientLight = new THREE.AmbientLight(0x6688cc, 0.4); // Blueish tint, reduced intensity
     scene.add(ambientLight);
     
-    // Directional light (sun)
-    const sunLight = new THREE.DirectionalLight(0xffffbb, 1);
-    sunLight.position.set(0, 50, 0);
+    // Enhanced directional light (sun)
+    const sunLight = new THREE.DirectionalLight(0xffffbb, 1.2);
+    sunLight.position.set(-50, 100, -50); // Angled sunlight for better shadows
     sunLight.castShadow = true;
     
-    // Set up shadow properties
-    sunLight.shadow.mapSize.width = 2048;
-    sunLight.shadow.mapSize.height = 2048;
+    // Improved shadow properties
+    sunLight.shadow.mapSize.width = 4096;  // Increased resolution
+    sunLight.shadow.mapSize.height = 4096;
     sunLight.shadow.camera.near = 0.5;
-    sunLight.shadow.camera.far = 500;
-    sunLight.shadow.camera.left = -100;
-    sunLight.shadow.camera.right = 100;
-    sunLight.shadow.camera.top = 100;
-    sunLight.shadow.camera.bottom = -100;
+    sunLight.shadow.camera.far = 600;
+    sunLight.shadow.camera.left = -150;
+    sunLight.shadow.camera.right = 150;
+    sunLight.shadow.camera.top = 150;
+    sunLight.shadow.camera.bottom = -150;
+    sunLight.shadow.bias = -0.0001; // Reduce shadow artifacts
     
     scene.add(sunLight);
     
-    // Add underwater light rays
-    createLightRays();
+    // Add underwater caustics (light patterns)
+    //TODO: Implement caustics shader
+    const causticsLight = new THREE.PointLight(0x2233ff, 1.5);
+    causticsLight.position.set(0, 30, 0);
+    scene.add(causticsLight);
     
-    // Add this inside the addLights function
-    const seabedLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    // Enhanced seabed lighting
+    const seabedLight = new THREE.DirectionalLight(0x8899ff, 0.6);
     seabedLight.position.set(0, 10, 0);
     seabedLight.target.position.set(0, -25, 0);
     seabedLight.castShadow = true;
@@ -97,28 +101,32 @@ function createLightRays() {
 }
 
 function createWaterSurface() {
-    console.log("Creating water surface with fallback textures");
+    // Create more detailed water geometry
+    const waterGeometry = new THREE.PlaneGeometry(400, 400, 100, 100);
     
-    // Create fallback textures directly
-    const { waterTexture, waterNormalMap } = createPlaceholderWaterTextures();
+    // Create water textures
+    const waterTexture = new THREE.TextureLoader().load('textures/water/waternormals.jpg');
+    waterTexture.wrapS = waterTexture.wrapT = THREE.RepeatWrapping;
+    waterTexture.repeat.set(5, 5);
     
-    // Create water surface that follows the player
-    const waterGeometry = new THREE.PlaneGeometry(400, 400, 40, 40);
-    const waterMaterial = new THREE.MeshPhongMaterial({
-        color: 0xffffff, // White to let the texture show properly
+    // Enhanced water material
+    const waterMaterial = new THREE.MeshPhysicalMaterial({
+        color: 0x0066cc,
+        metalness: 0.1,
+        roughness: 0.2,
+        transmission: 0.9,
+        thickness: 0.5,
         transparent: true,
         opacity: 0.8,
         side: THREE.DoubleSide,
-        map: waterTexture,
-        normalMap: waterNormalMap,
-        normalScale: new THREE.Vector2(0.5, 0.5),
-        shininess: 100,
-        specular: 0x111111
+        normalMap: waterTexture,
+        normalScale: new THREE.Vector2(0.3, 0.3)
     });
     
     waterSurface = new THREE.Mesh(waterGeometry, waterMaterial);
     waterSurface.rotation.x = Math.PI / 2;
     waterSurface.position.y = 45;
+    
     scene.add(waterSurface);
 }
 
@@ -547,32 +555,33 @@ function spawnJellyfish(playerPos, angle, distance) {
 
 function updateWaterSurface() {
     if (waterSurface) {
-        // Move water surface to follow player (only x and z)
+        // Follow player position
         waterSurface.position.x = playerFish.fishGroup.position.x;
         waterSurface.position.z = playerFish.fishGroup.position.z;
         
-        // Animate water texture
+        // Enhanced wave animation
         const time = Date.now() * 0.001;
-        if (waterTexture) {
-            waterTexture.offset.x = time * 0.05;
-            waterTexture.offset.y = time * 0.03;
-        }
-        if (waterNormalMap) {
-            waterNormalMap.offset.x = time * 0.03;
-            waterNormalMap.offset.y = time * 0.02;
-        }
-        
-        // Simple water animation - adjust vertices for wave effect
         const vertices = waterSurface.geometry.attributes.position.array;
         
         for (let i = 0; i < vertices.length; i += 3) {
             const x = vertices[i];
             const z = vertices[i + 2];
-            vertices[i + 2] = Math.sin(time * 0.5 + x * 0.05) * 2 + 
-                             Math.cos(time * 0.3 + z * 0.05) * 2;
+            
+            // Combine multiple wave patterns
+            vertices[i + 1] = 
+                Math.sin(time * 0.5 + x * 0.03) * 2.0 +
+                Math.cos(time * 0.3 + z * 0.04) * 1.5 +
+                Math.sin(time * 0.7 + (x + z) * 0.02) * 1.0;
         }
         
         waterSurface.geometry.attributes.position.needsUpdate = true;
+        
+        // Only update texture offset if the material and normalMap exist
+        const material = waterSurface.material;
+        if (material && material.normalMap) {
+            material.normalMap.offset.x = time * 0.05;
+            material.normalMap.offset.y = time * 0.04;
+        }
     }
 }
 
