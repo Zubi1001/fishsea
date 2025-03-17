@@ -97,22 +97,23 @@ class WorldGenerator {
         });
     }
     
-    // Generate seafloor with a simpler implementation
+    // Generate seafloor with improved procedural generation
     generateSeafloor(worldX, worldZ, seed) {
+        // Increase resolution for more detailed terrain
         const geometry = new THREE.PlaneGeometry(
             this.chunkSize, 
             this.chunkSize, 
-            20,
-            20
+            32,  // Increased from 20
+            32   // Increased from 20
         );
         
-        // Add some height variation to the seafloor
+        // Add more varied height variation to the seafloor
         const vertices = geometry.attributes.position.array;
         
         // Create a seeded random function
         const seededRandom = this.createSeededRandom(seed);
         
-        // Generate gentle terrain
+        // Generate more interesting terrain with multiple frequencies
         for (let i = 0; i < vertices.length; i += 3) {
             const x = vertices[i];
             const z = vertices[i + 2];
@@ -120,34 +121,81 @@ class WorldGenerator {
             const absoluteX = worldX + x + this.chunkSize/2;
             const absoluteZ = worldZ + z + this.chunkSize/2;
             
-            // Create gentle height variation
-            const height = 
-                Math.sin(absoluteX * 0.01 + seed * 0.1) * Math.cos(absoluteZ * 0.01 + seed * 0.05) * 2;
+            // Create multi-frequency noise for more natural terrain
+            // Large scale features
+            const largeScale = 
+                Math.sin(absoluteX * 0.01 + seed * 0.1) * 
+                Math.cos(absoluteZ * 0.01 + seed * 0.05) * 2;
+                
+            // Medium scale features
+            const mediumScale = 
+                Math.sin(absoluteX * 0.03 + seed * 0.2) * 
+                Math.cos(absoluteZ * 0.03 + seed * 0.15) * 1;
+                
+            // Small scale features
+            const smallScale = 
+                Math.sin(absoluteX * 0.07 + seed * 0.3) * 
+                Math.cos(absoluteZ * 0.07 + seed * 0.25) * 0.5;
             
-            // Add minimal random noise
-            const noise = (seededRandom() - 0.5) * 0.5;
+            // Add more significant random noise
+            const noise = (seededRandom() - 0.5) * 1.5;
             
-            vertices[i + 1] = height + noise;
+            // Combine all frequencies with the noise
+            vertices[i + 1] = largeScale + mediumScale + smallScale + noise;
         }
         
         geometry.attributes.position.needsUpdate = true;
         geometry.computeVertexNormals();
         
-        // Use a simple material with a sand color - no textures
+        // Use a material with color variation based on height
         const material = new THREE.MeshPhongMaterial({
-            color: 0xd2b48c, // Standard sand color
+            vertexColors: true,
             side: THREE.DoubleSide,
             shininess: 5,
             wireframe: false
         });
         
+        // Add vertex colors based on height for more visual variation
+        const colors = [];
+        for (let i = 0; i < vertices.length; i += 3) {
+            const height = vertices[i + 1];
+            
+            // Base sand color
+            let r = 0.82; // d2
+            let g = 0.71; // b4
+            let b = 0.55; // 8c
+            
+            // Adjust color based on height
+            if (height > 1.5) {
+                // Lighter sand for higher areas
+                r = 0.9;
+                g = 0.8;
+                b = 0.6;
+            } else if (height < -1.5) {
+                // Darker, more bluish for deeper areas
+                r = 0.6;
+                g = 0.55;
+                b = 0.5;
+            }
+            
+            // Add slight random variation to each vertex color
+            r += (seededRandom() - 0.5) * 0.1;
+            g += (seededRandom() - 0.5) * 0.1;
+            b += (seededRandom() - 0.5) * 0.1;
+            
+            colors.push(r, g, b);
+        }
+        
+        // Add the colors to the geometry
+        geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+        
         const floor = new THREE.Mesh(geometry, material);
         floor.rotation.x = Math.PI / 2;
         
-        // Position the floor higher so it's more visible
+        // Position the floor
         floor.position.set(
             worldX + this.chunkSize/2, 
-            -35, // Raised from -50 to -35
+            -35, 
             worldZ + this.chunkSize/2
         );
         floor.receiveShadow = true;

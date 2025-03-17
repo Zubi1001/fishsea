@@ -4,6 +4,8 @@ class PlayerFish extends Fish {
         
         this.camera = camera;
         this.maxSpeed = 0.2;
+        this.normalMaxSpeed = 0.2; // Store the normal max speed
+        this.boostMaxSpeed = 0.5;  // Boosted max speed (2.5x faster)
         this.input = {
             forward: false,
             backward: false,
@@ -12,7 +14,8 @@ class PlayerFish extends Fish {
             up: false,
             down: false,
             quickUp: false,
-            quickDown: false
+            quickDown: false,
+            boost: false    // New input for boost
         };
         
         // Improved control variables
@@ -22,14 +25,42 @@ class PlayerFish extends Fish {
         this.rotationSpeed = 0.04; // Increased from 0.03
         this.bankAngle = 0; // For tilting when turning
         
+        // Trail effect properties
+        this.trailParticles = [];
+        this.trailTimer = 0;
+        this.createTrailSystem();
+        
         // Set up camera to follow player
         this.cameraOffset = new THREE.Vector3(0, 3, -10);
+        
+        // Mouse camera control variables
+        this.mouseControl = {
+            enabled: true,
+            sensitivity: 0.002,
+            horizontalAngle: 0,
+            verticalAngle: 0,
+            minVerticalAngle: -Math.PI/4,  // Limit looking down
+            maxVerticalAngle: Math.PI/4,   // Limit looking up
+            lastMouseX: 0,
+            lastMouseY: 0,
+            isDragging: false,
+            resetSpeed: 0.05  // Speed at which camera resets to default position
+        };
+        
         this.setupControls();
     }
     
     setupControls() {
         document.addEventListener('keydown', (e) => this.handleKeyDown(e));
         document.addEventListener('keyup', (e) => this.handleKeyUp(e));
+        
+        // Add mouse event listeners
+        document.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+        document.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+        document.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+        
+        // Prevent context menu on right-click
+        document.addEventListener('contextmenu', (e) => e.preventDefault());
     }
     
     handleKeyDown(event) {
@@ -62,10 +93,13 @@ class PlayerFish extends Fish {
                 // Control for quick down movement
                 this.input.quickDown = true;
                 break;
+            case 'Shift':
+                this.input.boost = true;
+                break;
         }
         
         // Prevent default behavior for arrow keys to avoid page scrolling
-        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(event.key)) {
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Shift'].includes(event.key)) {
             event.preventDefault();
         }
     }
@@ -98,7 +132,42 @@ class PlayerFish extends Fish {
             case 'Control':
                 this.input.quickDown = false;
                 break;
+            case 'Shift':
+                this.input.boost = false;
+                break;
         }
+    }
+    
+    handleMouseDown(event) {
+        this.mouseControl.isDragging = true;
+        this.mouseControl.lastMouseX = event.clientX;
+        this.mouseControl.lastMouseY = event.clientY;
+    }
+    
+    handleMouseUp(event) {
+        this.mouseControl.isDragging = false;
+    }
+    
+    handleMouseMove(event) {
+        if (!this.mouseControl.enabled || !this.mouseControl.isDragging) return;
+        
+        // Calculate mouse movement
+        const deltaX = event.clientX - this.mouseControl.lastMouseX;
+        const deltaY = event.clientY - this.mouseControl.lastMouseY;
+        
+        // Update last mouse position
+        this.mouseControl.lastMouseX = event.clientX;
+        this.mouseControl.lastMouseY = event.clientY;
+        
+        // Update camera angles
+        this.mouseControl.horizontalAngle -= deltaX * this.mouseControl.sensitivity;
+        this.mouseControl.verticalAngle -= deltaY * this.mouseControl.sensitivity;
+        
+        // Clamp vertical angle to prevent camera flipping
+        this.mouseControl.verticalAngle = Math.max(
+            this.mouseControl.minVerticalAngle,
+            Math.min(this.mouseControl.maxVerticalAngle, this.mouseControl.verticalAngle)
+        );
     }
     
     update() {
@@ -125,14 +194,29 @@ class PlayerFish extends Fish {
         // Apply drag/friction to slow down when not pressing keys
         this.velocity.multiplyScalar(0.95);
         
+        // Update trail effect
+        this.updateTrail();
+        
         // Check for collisions
         this.checkCollisions(this.scene.children);
     }
     
     handleMovement() {
+        // Apply boost when Shift is pressed
+        if (this.input.boost) {
+            this.maxSpeed = this.boostMaxSpeed;
+            this.acceleration = 0.02; // Faster acceleration when boosting
+        } else {
+            this.maxSpeed = this.normalMaxSpeed;
+            this.acceleration = 0.01; // Normal acceleration
+        }
+        
         // Handle acceleration/deceleration with W/S
         if (this.input.forward) {
             this.currentSpeed = Math.min(this.currentSpeed + this.acceleration, this.maxSpeed);
+            
+            // Reset camera angles when moving forward
+            this.resetCameraAngles();
         } else if (this.input.backward) {
             this.currentSpeed = Math.max(this.currentSpeed - this.acceleration, -this.maxSpeed * 0.5);
         } else {
@@ -246,8 +330,31 @@ class PlayerFish extends Fish {
         const fishDirection = new THREE.Vector3(0, 0, 1);
         fishDirection.applyQuaternion(this.fishGroup.quaternion);
         
-        // Calculate camera offset based on fish direction
-        const offset = this.cameraOffset.clone();
+        // Calculate base camera offset based on fish direction
+        let offset = this.cameraOffset.clone();
+        
+        // Apply mouse rotation to the camera offset
+        if (this.mouseControl.enabled) {
+            // Create rotation quaternions for horizontal and vertical rotations
+            const horizontalRotation = new THREE.Quaternion().setFromAxisAngle(
+                new THREE.Vector3(0, 1, 0),
+                this.mouseControl.horizontalAngle
+            );
+            
+            const rightVector = new THREE.Vector3(1, 0, 0);
+            rightVector.applyQuaternion(this.fishGroup.quaternion);
+            
+            const verticalRotation = new THREE.Quaternion().setFromAxisAngle(
+                rightVector,
+                this.mouseControl.verticalAngle
+            );
+            
+            // Apply rotations to the offset
+            offset.applyQuaternion(horizontalRotation);
+            offset.applyQuaternion(verticalRotation);
+        }
+        
+        // Apply fish orientation to the offset
         offset.applyQuaternion(this.fishGroup.quaternion);
         
         // Apply banking to camera as well
@@ -366,5 +473,77 @@ class PlayerFish extends Fish {
         }
         
         return false;
+    }
+    
+    createTrailSystem() {
+        // We'll create this as a simple particle system
+        this.trailMaterial = new THREE.MeshBasicMaterial({
+            color: 0x66ccff,
+            transparent: true,
+            opacity: 0.7
+        });
+    }
+    
+    updateTrail() {
+        // Only create trail particles when boosting and moving
+        if (this.input.boost && this.velocity.length() > 0.05) {
+            this.trailTimer++;
+            
+            // Create a new trail particle every few frames
+            if (this.trailTimer % 3 === 0) {
+                this.createTrailParticle();
+            }
+        }
+        
+        // Update existing trail particles
+        for (let i = this.trailParticles.length - 1; i >= 0; i--) {
+            const particle = this.trailParticles[i];
+            
+            // Fade out and shrink the particle
+            particle.material.opacity -= 0.03;
+            particle.scale.multiplyScalar(0.95);
+            
+            // Remove particles that have faded out
+            if (particle.material.opacity <= 0) {
+                this.scene.remove(particle);
+                this.trailParticles.splice(i, 1);
+            }
+        }
+    }
+    
+    createTrailParticle() {
+        // Create a small sphere at the fish's position
+        const geometry = new THREE.SphereGeometry(0.3, 8, 8);
+        const material = this.trailMaterial.clone();
+        const particle = new THREE.Mesh(geometry, material);
+        
+        // Position it at the fish's tail
+        const tailPosition = this.fishGroup.position.clone();
+        const backDirection = new THREE.Vector3(0, 0, -1);
+        backDirection.applyQuaternion(this.fishGroup.quaternion);
+        tailPosition.add(backDirection.multiplyScalar(this.size));
+        
+        particle.position.copy(tailPosition);
+        
+        // Add to scene and track it
+        this.scene.add(particle);
+        this.trailParticles.push(particle);
+    }
+    
+    // Add this new method to gradually reset camera angles
+    resetCameraAngles() {
+        // Gradually reset horizontal and vertical angles to 0
+        if (Math.abs(this.mouseControl.horizontalAngle) > 0.01 || Math.abs(this.mouseControl.verticalAngle) > 0.01) {
+            this.mouseControl.horizontalAngle *= (1 - this.mouseControl.resetSpeed);
+            this.mouseControl.verticalAngle *= (1 - this.mouseControl.resetSpeed);
+            
+            // If angles are very small, just set them to 0
+            if (Math.abs(this.mouseControl.horizontalAngle) < 0.01) {
+                this.mouseControl.horizontalAngle = 0;
+            }
+            if (Math.abs(this.mouseControl.verticalAngle) < 0.01) {
+                this.mouseControl.verticalAngle = 0;
+            }
+        }
     }
 } 
